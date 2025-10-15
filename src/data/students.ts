@@ -1,0 +1,130 @@
+export interface Student {
+  usn: string;
+  password: string;
+  name: string;
+  semester: number;
+  branch: string;
+  email: string;
+  phone: string;
+  section: string;
+  cgpa: number;
+}
+
+export const studentsData: Student[] = [
+  {
+    usn: "1MS21CS001",
+    password: "rhishav123",
+    name: "Rhishav",
+    semester: 6,
+    branch: "Computer Science",
+    email: "rhishav@campus.edu",
+    phone: "+91 98765 43210",
+    section: "A",
+    cgpa: 8.9,
+  },
+  {
+    usn: "1MS21CS002",
+    password: "rajanya123",
+    name: "Rajanya",
+    semester: 6,
+    branch: "Computer Science",
+    email: "rajanya@campus.edu",
+    phone: "+91 98765 43211",
+    section: "A",
+    cgpa: 9.2,
+  },
+];
+
+export const campusInfo = {
+  classes: [
+    {
+      code: "CS601",
+      name: "Machine Learning",
+      instructor: "Dr. Sarah Johnson",
+      timings: "Mon, Wed, Fri - 9:00 AM to 10:00 AM",
+      room: "Block A, Room 301",
+    },
+    {
+      code: "CS602",
+      name: "Cloud Computing",
+      instructor: "Prof. Michael Chen",
+      timings: "Tue, Thu - 11:00 AM to 12:30 PM",
+      room: "Block B, Room 205",
+    },
+    {
+      code: "CS603",
+      name: "Software Engineering",
+      instructor: "Dr. Emily Davis",
+      timings: "Mon, Wed - 2:00 PM to 3:30 PM",
+      room: "Block A, Room 405",
+    },
+  ],
+  events: [
+    {
+      title: "TechFest 2025",
+      date: "March 15-17, 2025",
+      location: "Main Auditorium",
+      description: "Annual technical festival featuring hackathons, workshops, and tech talks",
+    },
+    {
+      title: "Industry Expert Lecture Series",
+      date: "Every Friday, 4:00 PM",
+      location: "Conference Hall",
+      description: "Weekly lectures by industry professionals from leading tech companies",
+    },
+    {
+      title: "Campus Placement Drive",
+      date: "April 1-15, 2025",
+      location: "Placement Cell",
+      description: "On-campus recruitment by top companies",
+    },
+  ],
+  facilities: [
+    {
+      name: "Central Library",
+      timings: "8:00 AM - 10:00 PM",
+      location: "Central Block",
+    },
+    {
+      name: "Computer Labs",
+      timings: "8:00 AM - 8:00 PM",
+      location: "Block A & B",
+    },
+    {
+      name: "Sports Complex",
+      timings: "6:00 AM - 9:00 PM",
+      location: "Near Main Gate",
+    },
+    {
+      name: "Cafeteria",
+      timings: "7:00 AM - 9:00 PM",
+      location: "Ground Floor, Main Building",
+    },
+  ],
+  tourSpots: [
+    {
+      name: "Main Entrance Gate",
+      description: "The iconic entrance with the university name and emblem",
+    },
+    {
+      name: "Central Library",
+      description: "A modern 5-story library with over 100,000 books and digital resources",
+    },
+    {
+      name: "Innovation Lab",
+      description: "State-of-the-art facility for student projects and research",
+    },
+    {
+      name: "Auditorium",
+      description: "1500-seater auditorium for events, seminars, and performances",
+    },
+    {
+      name: "Sports Complex",
+      description: "Includes indoor and outdoor facilities for various sports",
+    },
+    {
+      name: "Student Center",
+      description: "Hub for student activities, clubs, and relaxation",
+    },
+  ],
+};
