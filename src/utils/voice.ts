@@ -1,57 +1,59 @@
-// Speech Recognition (STT)
+// src/utils/voice.ts
+
+import { SpeechRecognition } from '@capacitor-community/speech-recognition';
+// CHANGE 1: Import 'EdgeTTS' from the browser-specific entry point
+import { EdgeTTS } from 'edge-tts-universal/browser';
+
+// VoiceRecognition class remains unchanged.
 export class VoiceRecognition {
-  private recognition: any;
   private isListening = false;
 
-  constructor() {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      this.recognition = new SpeechRecognition();
-      this.recognition.continuous = false;
-      this.recognition.interimResults = false;
-      this.recognition.lang = 'en-US';
-    }
+  async isAvailable(): Promise<boolean> {
+    const { available } = await SpeechRecognition.available();
+    return available;
   }
 
-  isAvailable(): boolean {
-    return !!this.recognition;
-  }
-
-  start(
+  async start(
     onResult: (transcript: string) => void,
     onError?: (error: string) => void
-  ): void {
-    if (!this.recognition) {
-      onError?.('Speech recognition not supported');
-      return;
+  ): Promise<void> {
+    const permissionStatus = await SpeechRecognition.checkPermissions();
+    if (permissionStatus.speechRecognition !== 'granted') {
+      const permissionRequest = await SpeechRecognition.requestPermissions();
+      if (permissionRequest.speechRecognition !== 'granted') {
+        onError?.('User denied permission for speech recognition.');
+        return;
+      }
     }
 
     if (this.isListening) {
       return;
     }
 
-    this.recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      onResult(transcript);
-      this.isListening = false;
-    };
-
-    this.recognition.onerror = (event: any) => {
-      onError?.(event.error);
-      this.isListening = false;
-    };
-
-    this.recognition.onend = () => {
-      this.isListening = false;
-    };
-
-    this.recognition.start();
     this.isListening = true;
+    try {
+      await SpeechRecognition.start({
+        language: 'en-US',
+        partialResults: false,
+        popup: false,
+      });
+
+      const listener = SpeechRecognition.addListener('partialResults', (data: any) => {
+        if (data.matches && data.matches.length > 0) {
+          this.isListening = false;
+          listener.remove();
+          onResult(data.matches[0]);
+        }
+      });
+    } catch (error: any) {
+      this.isListening = false;
+      onError?.(error.message || 'An unknown speech recognition error occurred.');
+    }
   }
 
-  stop(): void {
-    if (this.recognition && this.isListening) {
-      this.recognition.stop();
+  async stop(): Promise<void> {
+    if (this.isListening) {
+      await SpeechRecognition.stop();
       this.isListening = false;
     }
   }
@@ -61,55 +63,60 @@ export class VoiceRecognition {
   }
 }
 
-// Text to Speech (TTS)
-export class TextToSpeech {
-  private synth: SpeechSynthesis | null = null;
-  private isSpeaking = false;
 
-  constructor() {
-    if ('speechSynthesis' in window) {
-      this.synth = window.speechSynthesis;
-    }
-  }
+// Text to Speech (TTS) - Corrected for Vite/Browser Build
+export class TextToSpeech {
+  private isSpeaking = false;
+  private audioPlayer: HTMLAudioElement | null = null;
 
   isAvailable(): boolean {
-    return !!this.synth;
+    return true;
   }
 
-  speak(text: string, onEnd?: () => void): void {
-    if (!this.synth) {
-      return;
+  async speak(text: string, onEnd?: () => void): Promise<void> {
+    if (this.isSpeaking && this.audioPlayer) {
+      await this.stop();
     }
 
-    // Cancel any ongoing speech
-    this.synth.cancel();
+    this.isSpeaking = true;
+    try {
+      // CHANGE 2: Use the imported 'EdgeTTS' class
+      const tts = new EdgeTTS(text, 'en-US-AvaNeural');
+      const result = await tts.synthesize();
+      
+      const audioData = await result.audio.arrayBuffer();
+      
+      const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
+      this.audioPlayer = new Audio(audioUrl);
+      
+      this.audioPlayer.onended = () => {
+        this.isSpeaking = false;
+        URL.revokeObjectURL(audioUrl);
+        this.audioPlayer = null;
+        onEnd?.();
+      };
+      
+      await this.audioPlayer.play();
 
-    utterance.onstart = () => {
-      this.isSpeaking = true;
-    };
-
-    utterance.onend = () => {
+    } catch (error) {
+      console.error("Edge TTS Error:", error);
       this.isSpeaking = false;
       onEnd?.();
-    };
-
-    utterance.onerror = () => {
-      this.isSpeaking = false;
-    };
-
-    this.synth.speak(utterance);
+    }
   }
 
-  stop(): void {
-    if (this.synth) {
-      this.synth.cancel();
-      this.isSpeaking = false;
+  async stop(): Promise<void> {
+    if (this.audioPlayer) {
+      this.audioPlayer.pause();
+      this.audioPlayer.currentTime = 0;
+      if(this.audioPlayer.src) {
+        URL.revokeObjectURL(this.audioPlayer.src);
+      }
+      this.audioPlayer = null;
     }
+    this.isSpeaking = false;
   }
 
   getIsSpeaking(): boolean {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Info, Map, User, LogOut, X } from 'lucide-react';
+import { Home, Info, Map, User, LogOut, X , MessageSquare} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 
@@ -14,6 +14,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const navItems = [
     { path: '/home', icon: Home, label: 'Home' },
+    { path: '/chat', icon: MessageSquare, label: 'Chat' },
     { path: '/info', icon: Info, label: 'Info' },
     { path: '/tour', icon: Map, label: 'Tour' },
     { path: '/you', icon: User, label: 'You' },

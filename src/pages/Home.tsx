@@ -1,7 +1,10 @@
+// src/pages/Home.tsx - NO CHANGES REQUIRED
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Mic, MicOff, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Mic, MicOff, Volume2, VolumeX, Loader2, Send } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { VoiceRecognition, TextToSpeech } from '@/utils/voice';
 import { sendToGemini, getSystemPrompt, Message } from '@/utils/gemini';
@@ -16,7 +19,8 @@ const Home: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentTranscript, setCurrentTranscript] = useState('');
-  
+  const [textInput, setTextInput] = useState('');
+
   const voiceRecognition = useRef(new VoiceRecognition());
   const tts = useRef(new TextToSpeech());
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -27,21 +31,66 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, currentTranscript]);
 
   useEffect(() => {
-    if (!voiceRecognition.current.isAvailable()) {
-      toast({
-        title: 'Voice Recognition Unavailable',
-        description: 'Speech recognition is not supported on this device.',
-        variant: 'destructive',
-      });
-    }
+    const checkAvailability = async () => {
+      const isVrAvailable = await voiceRecognition.current.isAvailable();
+      if (!isVrAvailable) {
+        toast({
+          title: 'Voice Recognition Unavailable',
+          description: 'Speech recognition is not supported on this device.',
+          variant: 'destructive',
+        });
+      }
+    };
+    checkAvailability();
   }, [toast]);
 
+  const processInput = async (inputContent: string) => {
+    if (!inputContent.trim()) return;
+
+    const userMessage: Message = { role: 'user', content: inputContent };
+    setMessages(prev => [...prev, userMessage]);
+
+    setIsProcessing(true);
+    try {
+      const systemPrompt = getSystemPrompt(
+        student?.name || '',
+        student?.usn || '',
+        student?.semester || 0,
+        student?.branch || ''
+      );
+
+      const response = await sendToGemini([...messages, userMessage], systemPrompt);
+
+      const assistantMessage: Message = { role: 'assistant', content: response };
+      setMessages(prev => [...prev, assistantMessage]);
+
+      setIsSpeaking(true);
+      await tts.current.speak(response, () => {
+        setIsSpeaking(false);
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to process your request. Please check your API key.',
+        variant: 'destructive',
+      });
+      console.error('Error:', error);
+    } finally {
+      setIsProcessing(false);
+      if (isSpeaking) {
+          setIsSpeaking(false);
+      }
+    }
+  };
+
   const handleVoiceInput = async () => {
+    setTextInput('');
+
     if (isListening) {
-      voiceRecognition.current.stop();
+      await voiceRecognition.current.stop();
       setIsListening(false);
       return;
     }
@@ -49,46 +98,12 @@ const Home: React.FC = () => {
     setIsListening(true);
     setCurrentTranscript('');
 
-    voiceRecognition.current.start(
+    await voiceRecognition.current.start(
       async (transcript) => {
         setIsListening(false);
         setCurrentTranscript(transcript);
-        
-        // Add user message
-        const userMessage: Message = { role: 'user', content: transcript };
-        setMessages(prev => [...prev, userMessage]);
-        
-        // Process with Gemini
-        setIsProcessing(true);
-        try {
-          const systemPrompt = getSystemPrompt(
-            student?.name || '',
-            student?.usn || '',
-            student?.semester || 0,
-            student?.branch || ''
-          );
-          
-          const response = await sendToGemini([...messages, userMessage], systemPrompt);
-          
-          const assistantMessage: Message = { role: 'assistant', content: response };
-          setMessages(prev => [...prev, assistantMessage]);
-          
-          // Speak the response
-          setIsSpeaking(true);
-          tts.current.speak(response, () => {
-            setIsSpeaking(false);
-          });
-        } catch (error) {
-          toast({
-            title: 'Error',
-            description: 'Failed to process your request. Please check your API key.',
-            variant: 'destructive',
-          });
-          console.error('Error:', error);
-        } finally {
-          setIsProcessing(false);
-          setCurrentTranscript('');
-        }
+        await processInput(transcript);
+        setCurrentTranscript('');
       },
       (error) => {
         setIsListening(false);
@@ -97,13 +112,23 @@ const Home: React.FC = () => {
           description: `Voice recognition error: ${error}`,
           variant: 'destructive',
         });
+        setCurrentTranscript('');
       }
     );
   };
 
-  const toggleSpeaker = () => {
+  const handleTextSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (textInput.trim() === '' || isProcessing || isListening || isSpeaking) return;
+
+    const content = textInput;
+    setTextInput('');
+    await processInput(content);
+  };
+
+  const toggleSpeaker = async () => {
     if (isSpeaking) {
-      tts.current.stop();
+      await tts.current.stop();
       setIsSpeaking(false);
     }
   };
@@ -111,7 +136,6 @@ const Home: React.FC = () => {
   return (
     <Layout>
       <div className="h-[calc(100vh-4rem)] flex flex-col p-4">
-        {/* Welcome Header */}
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-foreground mb-1">
             Welcome, {student?.name}!
@@ -121,13 +145,12 @@ const Home: React.FC = () => {
           </p>
         </div>
 
-        {/* Messages Area */}
-        <Card className="flex-1 bg-card border-border p-4 mb-4 overflow-y-auto">
-          {messages.length === 0 ? (
+        <Card className="flex-1 bg-transparent p-4 mb-4 overflow-y-auto">
+          {messages.length === 0 && !currentTranscript ? (
             <div className="h-full flex items-center justify-center text-center">
               <div className="space-y-2">
                 <p className="text-muted-foreground">
-                  Tap the microphone to start a conversation
+                  Type or tap the microphone to start a conversation 💬
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Ask me about classes, events, facilities, or campus tours!
@@ -173,13 +196,29 @@ const Home: React.FC = () => {
           )}
         </Card>
 
-        {/* Voice Controls */}
+        <form onSubmit={handleTextSubmit} className="flex items-center gap-2 mb-4">
+            <Input
+                type="text"
+                placeholder="Type your message..."
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                disabled={isProcessing || isListening || isSpeaking}
+                className="flex-1 p-3 text-base"
+            />
+            <Button
+                type="submit"
+                size="icon"
+                disabled={textInput.trim() === '' || isProcessing || isListening || isSpeaking}
+            >
+                <Send className="h-5 w-5" />
+            </Button>
+        </form>
+
         <div className="flex items-center justify-center gap-4">
-          {/* Mic Button */}
           <Button
             size="lg"
             onClick={handleVoiceInput}
-            disabled={isProcessing || isSpeaking}
+            disabled={isProcessing || isSpeaking || textInput.length > 0}
             className={`h-20 w-20 rounded-full transition-all ${
               isListening
                 ? 'bg-destructive hover:bg-destructive shadow-voice-glow animate-pulse'
@@ -193,7 +232,6 @@ const Home: React.FC = () => {
             )}
           </Button>
 
-          {/* Speaker Toggle */}
           <Button
             size="lg"
             variant="outline"
@@ -209,7 +247,6 @@ const Home: React.FC = () => {
           </Button>
         </div>
 
-        {/* Status Indicator */}
         <div className="text-center mt-4 min-h-[24px]">
           {isListening && (
             <p className="text-accent font-medium animate-pulse">Listening...</p>

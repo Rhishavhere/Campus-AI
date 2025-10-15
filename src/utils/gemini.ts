@@ -45,7 +45,7 @@ export async function sendToGemini(messages: Message[], systemPrompt: string): P
     throw new Error('Gemini API key not configured. Please add VITE_GEMINI_API_KEY to your .env file');
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
   const contents = [
     {
